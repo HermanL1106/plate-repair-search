@@ -30,7 +30,28 @@ def main():
         + ";\n",
         encoding="utf-8",
     )
+    update_index(csv_text)
     print(f"Updated data.csv and data.js from sheet: {SHEET_NAME}")
+
+
+def update_index(csv_text):
+    index_path = ROOT / "index.html"
+    index = index_path.read_text(encoding="utf-8")
+    start = "    <!-- SHEET_DATA_START -->"
+    end = "    <!-- SHEET_DATA_END -->"
+    if start not in index or end not in index:
+        raise RuntimeError("index.html is missing sheet data markers.")
+
+    before, rest = index.split(start, 1)
+    _, after = rest.split(end, 1)
+    script = (
+        f"{start}\n"
+        "    <script>window.__PLATE_SEARCH_DATA_CSV__ = "
+        + json.dumps(csv_text, ensure_ascii=False)
+        + ";</script>\n"
+        f"{end}"
+    )
+    index_path.write_text(before + script + after, encoding="utf-8")
 
 
 if __name__ == "__main__":
