@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import csv
 import json
+from io import StringIO
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -31,7 +33,7 @@ def main():
         encoding="utf-8",
     )
     update_index(csv_text)
-    update_app(csv_text)
+    update_app(csv_text, rows_to_objects(csv_text))
     print(f"Updated data.csv, data.js, index.html, and app.js from sheet: {SHEET_NAME}")
 
 
@@ -55,24 +57,59 @@ def update_index(csv_text):
     index_path.write_text(before + script + after, encoding="utf-8")
 
 
-def update_app(csv_text):
+def update_app(csv_text, rows):
     app_path = ROOT / "app.js"
     app = app_path.read_text(encoding="utf-8")
-    start = "// EMBEDDED_DATA_START"
-    end = "// EMBEDDED_DATA_END"
-    if start not in app or end not in app:
-        raise RuntimeError("app.js is missing embedded data markers.")
-
-    before, rest = app.split(start, 1)
-    _, after = rest.split(end, 1)
-    block = (
-        f"{start}\n"
-        "const EMBEDDED_DATA_CSV = "
-        + json.dumps(csv_text, ensure_ascii=False)
-        + ";\n"
-        f"{end}"
+    app = replace_marked_block(
+        app,
+        "// EMBEDDED_DATA_START",
+        "// EMBEDDED_DATA_END",
+        "const EMBEDDED_DATA_CSV = " + json.dumps(csv_text, ensure_ascii=False) + ";",
     )
-    app_path.write_text(before + block + after, encoding="utf-8")
+    app = replace_marked_block(
+        app,
+        "// EMBEDDED_ROWS_START",
+        "// EMBEDDED_ROWS_END",
+        "const EMBEDDED_ROWS = " + json.dumps(rows, ensure_ascii=False, separators=(",", ":")) + ";",
+    )
+    app_path.write_text(app, encoding="utf-8")
+
+
+def replace_marked_block(text, start, end, replacement):
+    if start not in text or end not in text:
+        raise RuntimeError(f"Missing markers: {start} / {end}")
+    before, rest = text.split(start, 1)
+    _, after = rest.split(end, 1)
+    return before + f"{start}\n{replacement}\n{end}" + after
+
+
+def rows_to_objects(csv_text):
+    matrix = list(csv.reader(StringIO(csv_text)))
+    if not matrix:
+        return []
+
+    headers = [cell.strip() or f"欄位 {index + 1}" for index, cell in enumerate(matrix[0])]
+    rows = []
+    for row_number, cells in enumerate(matrix[1:], start=2):
+        fields = {}
+        for cell_index, header in enumerate(headers):
+            value = cells[cell_index].strip() if cell_index < len(cells) else ""
+            if value:
+                fields[header] = value
+
+        plate = fields.get("車號", "").strip()
+        if not plate:
+            continue
+
+        rows.append(
+            {
+                "sheetName": SHEET_NAME,
+                "rowNumber": row_number,
+                "fields": fields,
+                "plate": plate,
+            }
+        )
+    return rows
 
 
 if __name__ == "__main__":
