@@ -31,7 +31,8 @@ def main():
         encoding="utf-8",
     )
     update_index(csv_text)
-    print(f"Updated data.csv and data.js from sheet: {SHEET_NAME}")
+    update_app(csv_text)
+    print(f"Updated data.csv, data.js, index.html, and app.js from sheet: {SHEET_NAME}")
 
 
 def update_index(csv_text):
@@ -52,6 +53,26 @@ def update_index(csv_text):
         f"{end}"
     )
     index_path.write_text(before + script + after, encoding="utf-8")
+
+
+def update_app(csv_text):
+    app_path = ROOT / "app.js"
+    app = app_path.read_text(encoding="utf-8")
+    start = "// EMBEDDED_DATA_START"
+    end = "// EMBEDDED_DATA_END"
+    if start not in app or end not in app:
+        raise RuntimeError("app.js is missing embedded data markers.")
+
+    before, rest = app.split(start, 1)
+    _, after = rest.split(end, 1)
+    block = (
+        f"{start}\n"
+        "const EMBEDDED_DATA_CSV = "
+        + json.dumps(csv_text, ensure_ascii=False)
+        + ";\n"
+        f"{end}"
+    )
+    app_path.write_text(before + block + after, encoding="utf-8")
 
 
 if __name__ == "__main__":
