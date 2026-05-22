@@ -192,42 +192,48 @@ async function loadSheetMatrix() {
 
 async function loadHostedCsv() {
   if (location.protocol === "file:") throw new Error("Hosted CSV is unavailable from file URLs.");
-  if (typeof window.fetch !== "function") return loadHostedCsvFrame();
-  const response = await window.fetch(`./data.csv?ts=${Date.now()}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`data.csv 讀取失敗：${response.status}`);
-  const text = await response.text();
-  if (!text.includes("車號")) throw new Error("data.csv 缺少車號欄位。");
-  return text;
+  if (typeof window.fetch === "function") {
+    try {
+      const response = await window.fetch(`./data.csv?ts=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`data.csv 讀取失敗：${response.status}`);
+      const text = await response.text();
+      if (!text.includes("車號")) throw new Error("data.csv 缺少車號欄位。");
+      return text;
+    } catch (error) {
+      console.warn("Hosted CSV fetch failed, trying hosted script.", error);
+    }
+  }
+  return loadHostedDataScript();
 }
 
-function loadHostedCsvFrame() {
+function loadHostedDataScript() {
   return new Promise((resolve, reject) => {
-    const frame = document.createElement("iframe");
+    const script = document.createElement("script");
     const timeout = window.setTimeout(() => {
-      frame.remove();
-      reject(new Error("data.csv 讀取逾時。"));
+      script.remove();
+      reject(new Error("data.js 讀取逾時。"));
     }, 8000);
 
-    frame.hidden = true;
-    frame.onload = () => {
+    script.onload = () => {
       try {
         window.clearTimeout(timeout);
-        const text = frame.contentDocument?.body?.innerText || "";
-        frame.remove();
-        if (!text.includes("車號")) reject(new Error("data.csv 缺少車號欄位。"));
+        const text = window.__PLATE_SEARCH_DATA_CSV__ || "";
+        delete window.__PLATE_SEARCH_DATA_CSV__;
+        script.remove();
+        if (!text.includes("車號")) reject(new Error("data.js 缺少車號欄位。"));
         else resolve(text);
       } catch (error) {
-        frame.remove();
+        script.remove();
         reject(error);
       }
     };
-    frame.onerror = () => {
+    script.onerror = () => {
       window.clearTimeout(timeout);
-      frame.remove();
-      reject(new Error("data.csv 讀取失敗。"));
+      script.remove();
+      reject(new Error("data.js 讀取失敗。"));
     };
-    frame.src = `./data.csv?ts=${Date.now()}`;
-    document.body.append(frame);
+    script.src = `./data.js?ts=${Date.now()}`;
+    document.body.append(script);
   });
 }
 

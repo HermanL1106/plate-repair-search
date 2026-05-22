@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import json
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -21,8 +22,15 @@ def main():
     if b"\xe8\xbb\x8a\xe8\x99\x9f" not in body:
         raise RuntimeError("Downloaded data does not include the 車號 column.")
 
-    (ROOT / "data.csv").write_bytes(body)
-    print(f"Updated data.csv from sheet: {SHEET_NAME}")
+    csv_text = body.decode("utf-8-sig")
+    (ROOT / "data.csv").write_text(csv_text, encoding="utf-8")
+    (ROOT / "data.js").write_text(
+        "window.__PLATE_SEARCH_DATA_CSV__ = "
+        + json.dumps(csv_text, ensure_ascii=False)
+        + ";\n",
+        encoding="utf-8",
+    )
+    print(f"Updated data.csv and data.js from sheet: {SHEET_NAME}")
 
 
 if __name__ == "__main__":
