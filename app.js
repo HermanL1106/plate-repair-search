@@ -155,43 +155,49 @@ function loadRows(rows, sourceLabel) {
     .sort((a, b) => rowDate(b) - rowDate(a));
   state.source = sourceLabel;
   updateSummary([]);
-  renderResults([]);
-  els.resultHint.textContent = `已載入 ${sourceLabel}，請輸入車牌搜尋。`;
+  if (normalizePlate(els.plateInput.value)) {
+    search();
+  } else {
+    renderResults([]);
+    els.resultHint.textContent = `已載入 ${sourceLabel}，請輸入車牌搜尋。`;
+  }
 }
 
 async function loadGoogleSheet() {
   setStatus("讀取中");
-  const data = await loadSheetMatrix();
-  const rows = rowsToObjects(data.matrix, CONFIG.sheetName);
-  if (!rows.length) throw new Error(`找不到「${CONFIG.sheetName}」分頁中的車牌欄位。`);
-  loadRows(rows, data.sourceLabel);
-  setStatus("線上資料");
-}
+  let fallbackLoaded = false;
 
-async function loadSheetMatrix() {
+  try {
+    const fallback = await loadFallbackMatrix();
+    const rows = rowsToObjects(fallback.matrix, CONFIG.sheetName);
+    if (rows.length) {
+      loadRows(rows, fallback.sourceLabel);
+      setStatus("備份資料");
+      fallbackLoaded = true;
+    }
+  } catch (error) {
+    console.warn("Fallback data loading failed.", error);
+  }
+
   try {
     const table = await loadGoogleTable();
-    return {
-      matrix: gvizTableToMatrix(table),
-      sourceLabel: "Google 試算表最新資料",
-    };
+    const rows = rowsToObjects(gvizTableToMatrix(table), CONFIG.sheetName);
+    if (!rows.length) throw new Error(`找不到「${CONFIG.sheetName}」分頁中的車牌欄位。`);
+    loadRows(rows, "Google 試算表最新資料");
+    setStatus("線上資料");
   } catch (error) {
-    console.warn("Google sheet direct loading failed, trying hosted CSV.", error);
+    if (!fallbackLoaded) throw error;
+    els.resultHint.textContent = normalizePlate(els.plateInput.value)
+      ? els.resultHint.textContent
+      : "已載入備份資料；Google 最新資料暫時無法讀取。";
   }
+}
 
-  try {
-    return {
-      matrix: parseCsv(await loadHostedCsv()),
-      sourceLabel: "GitHub 備份資料",
-    };
-  } catch (error) {
-    if (!["localhost", "127.0.0.1"].includes(location.hostname)) throw error;
-    const csvText = await loadLocalCsv();
-    return {
-      matrix: parseCsv(csvText),
-      sourceLabel: "本機備份資料",
-    };
-  }
+async function loadFallbackMatrix() {
+  return {
+    matrix: parseCsv(await loadHostedCsv()),
+    sourceLabel: "備份資料",
+  };
 }
 
 async function loadHostedCsv() {
