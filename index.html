@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>車牌維修資料搜尋</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="./app.js?v=20260522-1" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="search-panel">
+        <div class="title-row">
+          <div>
+            <p class="eyebrow">Gogoro 維修資料</p>
+            <h1>車牌搜尋</h1>
+          </div>
+          <div class="status-pill" id="sourceStatus">讀取中</div>
+        </div>
+
+        <div class="search-box">
+          <label for="plateInput">輸入車牌</label>
+          <div class="search-row">
+            <input id="plateInput" type="search" autocomplete="off" placeholder="例如 ABC-1234" />
+            <button id="searchButton" type="button">搜尋</button>
+          </div>
+        </div>
+
+        <div class="tools-row">
+          <label class="file-button">
+            匯入 CSV / XLSX
+            <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+          </label>
+          <button id="reloadButton" type="button" class="ghost-button">重新讀取線上表</button>
+        </div>
+
+        <div class="summary-grid">
+          <div>
+            <span id="totalRows">0</span>
+            <small>筆資料</small>
+          </div>
+          <div>
+            <span id="matchCount">0</span>
+            <small>筆符合</small>
+          </div>
+          <div>
+            <span id="sheetName">改裝業績</span>
+            <small>分頁</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="results-panel">
+        <div class="results-header">
+          <h2>查詢結果</h2>
+          <p id="resultHint">輸入完整或部分車牌即可搜尋。</p>
+        </div>
+        <div id="results" class="results-list"></div>
+      </section>
+    </main>
+  </body>
+</html>
