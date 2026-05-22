@@ -157,22 +157,47 @@ function loadRows(rows, sourceLabel) {
 
 async function loadGoogleSheet() {
   setStatus("讀取中");
-  const matrix = await loadSheetMatrix();
-  const rows = rowsToObjects(matrix, CONFIG.sheetName);
+  const data = await loadSheetMatrix();
+  const rows = rowsToObjects(data.matrix, CONFIG.sheetName);
   if (!rows.length) throw new Error(`找不到「${CONFIG.sheetName}」分頁中的車牌欄位。`);
-  loadRows(rows, "Google 試算表");
+  loadRows(rows, data.sourceLabel);
   setStatus("線上資料");
 }
 
 async function loadSheetMatrix() {
   try {
     const table = await loadGoogleTable();
-    return gvizTableToMatrix(table);
+    return {
+      matrix: gvizTableToMatrix(table),
+      sourceLabel: "Google 試算表最新資料",
+    };
+  } catch (error) {
+    console.warn("Google sheet direct loading failed, trying hosted CSV.", error);
+  }
+
+  try {
+    return {
+      matrix: parseCsv(await loadHostedCsv()),
+      sourceLabel: "GitHub 備份資料",
+    };
   } catch (error) {
     if (!["localhost", "127.0.0.1"].includes(location.hostname)) throw error;
     const csvText = await loadLocalCsv();
-    return parseCsv(csvText);
+    return {
+      matrix: parseCsv(csvText),
+      sourceLabel: "本機備份資料",
+    };
   }
+}
+
+async function loadHostedCsv() {
+  if (location.protocol === "file:") throw new Error("Hosted CSV is unavailable from file URLs.");
+  if (typeof window.fetch !== "function") throw new Error("This browser does not support direct CSV loading.");
+  const response = await window.fetch(`./data.csv?ts=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`data.csv 讀取失敗：${response.status}`);
+  const text = await response.text();
+  if (!text.includes("車號")) throw new Error("data.csv 缺少車號欄位。");
+  return text;
 }
 
 function loadGoogleTable() {
@@ -183,7 +208,7 @@ function loadGoogleTable() {
       script.remove();
       delete window[callback];
       reject(new Error("Google 試算表讀取逾時，請確認公開權限。"));
-    }, 15000);
+    }, 5000);
 
     window[callback] = (response) => {
       window.clearTimeout(timeout);

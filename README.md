@@ -22,7 +22,7 @@
 - 試算表 ID：`1DpSxO_ugC0tYlEdqMthc-xN8yVgiezsd2N3dIFiWQfc`
 - 分頁名稱：`改裝業績`
 
-只要 Google 試算表維持公開檢視者權限，資料每月更新後，網頁會讀到最新內容，不需要重新部署。
+網頁每次開啟、重新整理、或按「重新讀取線上表」時，都會先直接讀取 Google 試算表的最新內容。如果使用者的瀏覽器或網路阻擋 Google 跨網域讀取，才會改讀同 repo 內的 `data.csv` 備份。GitHub Actions 也會每天自動從 Google 試算表更新 `data.csv`，可在 Actions 頁面手動執行 `Update sheet data`。
 
 ## 本機預覽
 
