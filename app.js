@@ -192,12 +192,43 @@ async function loadSheetMatrix() {
 
 async function loadHostedCsv() {
   if (location.protocol === "file:") throw new Error("Hosted CSV is unavailable from file URLs.");
-  if (typeof window.fetch !== "function") throw new Error("This browser does not support direct CSV loading.");
+  if (typeof window.fetch !== "function") return loadHostedCsvFrame();
   const response = await window.fetch(`./data.csv?ts=${Date.now()}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`data.csv 讀取失敗：${response.status}`);
   const text = await response.text();
   if (!text.includes("車號")) throw new Error("data.csv 缺少車號欄位。");
   return text;
+}
+
+function loadHostedCsvFrame() {
+  return new Promise((resolve, reject) => {
+    const frame = document.createElement("iframe");
+    const timeout = window.setTimeout(() => {
+      frame.remove();
+      reject(new Error("data.csv 讀取逾時。"));
+    }, 8000);
+
+    frame.hidden = true;
+    frame.onload = () => {
+      try {
+        window.clearTimeout(timeout);
+        const text = frame.contentDocument?.body?.innerText || "";
+        frame.remove();
+        if (!text.includes("車號")) reject(new Error("data.csv 缺少車號欄位。"));
+        else resolve(text);
+      } catch (error) {
+        frame.remove();
+        reject(error);
+      }
+    };
+    frame.onerror = () => {
+      window.clearTimeout(timeout);
+      frame.remove();
+      reject(new Error("data.csv 讀取失敗。"));
+    };
+    frame.src = `./data.csv?ts=${Date.now()}`;
+    document.body.append(frame);
+  });
 }
 
 function loadGoogleTable() {
