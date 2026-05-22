@@ -191,6 +191,7 @@ async function loadSheetMatrix() {
 }
 
 async function loadHostedCsv() {
+  if (window.__PLATE_SEARCH_DATA_CSV__?.includes("車號")) return window.__PLATE_SEARCH_DATA_CSV__;
   if (location.protocol === "file:") throw new Error("Hosted CSV is unavailable from file URLs.");
   if (typeof window.fetch === "function") {
     try {
